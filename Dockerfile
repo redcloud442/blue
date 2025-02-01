@@ -41,6 +41,7 @@ COPY --from=builder --chown=redcloud:nodejs /app/dist ./dist
 COPY --from=builder --chown=redcloud:nodejs /app/package.json ./package.json
 COPY --from=builder --chown=redcloud:nodejs /app/prisma ./prisma
 
+
 # Copy the entrypoint script to the container
 COPY --from=builder --chown=redcloud:nodejs /app/scripts/entrypoint_overwrited.sh /app/entrypoint.sh
 
@@ -57,8 +58,10 @@ USER redcloud
 ENV PORT=3000
 EXPOSE 3000
 
+
+
 # Define the entrypoint for the container
 ENTRYPOINT ["/app/entrypoint.sh"]
 
 # Default command to start the app
-CMD ["node", "/app/dist/index.js"]
+CMD ["node", "/app/dist/index.js --tls-cert /etc/ssl/certs/origin.pem --tls-key /etc/ssl/private/origin.key"]
