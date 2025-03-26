@@ -1,5 +1,5 @@
 import { sendErrorResponse } from "../../utils/function.js";
-import { claimPackagePostModel, packageCreatePostModel, packageGetModel, packageListGetAdminModel, packageListGetModel, packagePostModel, packageUpdatePutModel, } from "./package.model.js";
+import { claimPackagePostModel, packageCreatePostModel, packageGetModel, packageListGetAdminModel, packageListGetModel, packagePostModel, packageReinvestPostModel, packageUpdatePutModel, } from "./package.model.js";
 export const packagePostController = async (c) => {
     try {
         const { amount, packageId } = await c.req.json();
@@ -98,6 +98,23 @@ export const packagesGetAdminController = async (c) => {
         return c.json({ data });
     }
     catch (error) {
+        return sendErrorResponse("Internal Server Error", 500);
+    }
+};
+export const packagesReinvestPostController = async (c) => {
+    try {
+        const teamMemberProfile = c.get("teamMemberProfile");
+        const params = c.get("params");
+        await packageReinvestPostModel({
+            packageConnectionId: params.packageConnectionId,
+            packageId: params.packageId,
+            amountToReinvest: params.amountToReinvest,
+            teamMemberId: teamMemberProfile.alliance_member_id,
+        });
+        return c.json({ message: "Package Reinvested" });
+    }
+    catch (error) {
+        console.log(error);
         return sendErrorResponse("Internal Server Error", 500);
     }
 };

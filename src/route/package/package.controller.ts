@@ -7,6 +7,7 @@ import {
   packageListGetAdminModel,
   packageListGetModel,
   packagePostModel,
+  packageReinvestPostModel,
   packageUpdatePutModel,
 } from "./package.model.js";
 
@@ -139,6 +140,25 @@ export const packagesGetAdminController = async (c: Context) => {
 
     return c.json({ data });
   } catch (error) {
+    return sendErrorResponse("Internal Server Error", 500);
+  }
+};
+
+export const packagesReinvestPostController = async (c: Context) => {
+  try {
+    const teamMemberProfile = c.get("teamMemberProfile");
+    const params = c.get("params");
+
+    await packageReinvestPostModel({
+      packageConnectionId: params.packageConnectionId,
+      packageId: params.packageId,
+      amountToReinvest: params.amountToReinvest,
+      teamMemberId: teamMemberProfile.alliance_member_id,
+    });
+
+    return c.json({ message: "Package Reinvested" });
+  } catch (error) {
+    console.log(error);
     return sendErrorResponse("Internal Server Error", 500);
   }
 };

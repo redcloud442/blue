@@ -7,6 +7,7 @@ import {
   packagesCreatePostController,
   packagesGetAdminController,
   packagesListPostController,
+  packagesReinvestPostController,
   packagesUpdatePutController,
 } from "./package.controller.js";
 import {
@@ -15,6 +16,7 @@ import {
   packagePostMiddleware,
   packagesClaimPostMiddleware,
   packagesGetListMiddleware,
+  packagesReinvestPostMiddleware,
   packageUpdatePutMiddleware,
 } from "./package.middleware.js";
 
@@ -42,4 +44,9 @@ packages.post(
   packagesClaimPostController
 );
 
+packages.post(
+  "/reinvest",
+  packagesReinvestPostMiddleware,
+  packagesReinvestPostController
+);
 export default packages;

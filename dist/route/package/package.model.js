@@ -399,6 +399,101 @@ export const packageListGetAdminModel = async () => {
     });
     return result;
 };
+export const packageReinvestPostModel = async (params) => {
+    const { packageConnectionId, packageId, amountToReinvest, teamMemberId } = params;
+    await prisma.$transaction(async (tx) => {
+        const currentTimestamp = new Date();
+        const packageConnection = await tx.package_member_connection_table.findUnique({
+            where: {
+                package_member_connection_id: packageConnectionId,
+                package_member_member_id: teamMemberId,
+            },
+        });
+        if (!packageConnection) {
+            throw new Error("Invalid request.");
+        }
+        if (packageConnection.package_member_member_id !== teamMemberId) {
+            throw new Error("Invalid request.");
+        }
+        const startDate = new Date(packageConnection.package_member_connection_created);
+        const completionDate = packageConnection.package_member_completion_date
+            ? new Date(packageConnection.package_member_completion_date)
+            : null;
+        const elapsedTimeMs = Math.max(currentTimestamp.getTime() - startDate.getTime(), 0);
+        const totalTimeMs = completionDate
+            ? Math.max(completionDate.getTime() - startDate.getTime(), 0)
+            : 0;
+        let percentage = totalTimeMs > 0 ? (elapsedTimeMs / totalTimeMs) * 100 : 100;
+        percentage = Math.min(percentage, 100);
+        if (!packageConnection.package_member_is_ready_to_claim ||
+            percentage !== 100) {
+            throw new Error("Invalid request. Package is not ready to claim.");
+        }
+        const updatedPackage = await tx.package_member_connection_table.updateMany({
+            where: {
+                package_member_connection_id: packageConnectionId,
+                package_member_status: { not: "ENDED" },
+            },
+            data: {
+                package_member_status: "ENDED",
+                package_member_is_ready_to_claim: false,
+            },
+        });
+        if (updatedPackage.count === 0) {
+            throw new Error("Invalid request. Package has already been claimed.");
+        }
+        const packageData = await tx.package_table.findUnique({
+            where: { package_id: packageId },
+            select: {
+                package_percentage: true,
+                packages_days: true,
+                package_is_disabled: true,
+                package_name: true,
+            },
+        });
+        if (!packageData) {
+            throw new Error("Invalid request.");
+        }
+        const packagePercentage = new Prisma.Decimal(Number(packageData.package_percentage)).div(100);
+        const packageAmountEarnings = new Prisma.Decimal(amountToReinvest).mul(packagePercentage);
+        await tx.package_member_connection_table.create({
+            data: {
+                package_member_member_id: teamMemberId,
+                package_member_package_id: packageId,
+                package_member_amount: Number(amountToReinvest.toFixed(2)),
+                package_amount_earnings: Number(packageAmountEarnings.toFixed(2)),
+                package_member_status: "ACTIVE",
+                package_member_completion_date: new Date(Date.now() + packageData.packages_days * 24 * 60 * 60 * 1000),
+                package_member_is_reinvestment: true,
+            },
+        });
+        await tx.alliance_transaction_table.create({
+            data: {
+                transaction_member_id: teamMemberId,
+                transaction_amount: amountToReinvest,
+                transaction_description: `Package Reinvested: ${packageData.package_name}`,
+            },
+        });
+        await tx.package_member_connection_table.update({
+            where: { package_member_connection_id: packageConnectionId },
+            data: {
+                package_member_status: "ENDED",
+                package_member_is_ready_to_claim: false,
+            },
+        });
+        await tx.package_earnings_log.create({
+            data: {
+                package_member_connection_id: packageConnectionId,
+                package_member_package_id: packageId,
+                package_member_member_id: teamMemberId,
+                package_member_connection_created: packageConnection.package_member_connection_created,
+                package_member_amount: packageConnection.package_member_amount,
+                package_member_amount_earnings: Number(packageAmountEarnings.toFixed(2)),
+                package_member_status: "ENDED",
+            },
+        });
+    });
+};
 function generateReferralChain(hierarchy, teamMemberId, maxDepth = 100) {
     if (!hierarchy)
         return [];

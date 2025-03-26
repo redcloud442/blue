@@ -214,6 +214,11 @@ export const claimPackagePutSchema = z.object({
     earnings: z.number(),
     packageConnectionId: z.string().uuid(),
 });
+export const reinvestPackagePutSchema = z.object({
+    packageConnectionId: z.string().uuid(),
+    amountToReinvest: z.number().min(3),
+    packageId: z.string().uuid(),
+});
 //merchant schema
 export const merchantDeleteSchema = z.object({
     merchantId: z.string().uuid(),
