@@ -164,6 +164,9 @@ export const packagePostModel = async (params) => {
                 },
             });
         }
+        console.log(transactionLogs);
+        console.log(bountyLogs);
+        console.log(referralChain);
         return connectionData;
     });
     return connectionData;
@@ -344,6 +347,7 @@ export const packageListGetModel = async (params) => {
                     package_name: true,
                     package_color: true,
                     packages_days: true,
+                    package_percentage: true,
                 },
             },
         },
@@ -381,6 +385,8 @@ export const packageListGetModel = async (params) => {
             profit_amount: Number(row.package_amount_earnings.toFixed(2)),
             current_amount: Number(Math.trunc(currentAmount)),
             is_ready_to_claim: percentage === 100,
+            package_percentage: row.package_table.package_percentage,
+            package_days: row.package_table.packages_days,
         };
     }));
     return processedData;
@@ -456,7 +462,15 @@ export const packageReinvestPostModel = async (params) => {
         }
         const packagePercentage = new Prisma.Decimal(Number(packageData.package_percentage)).div(100);
         const packageAmountEarnings = new Prisma.Decimal(amountToReinvest).mul(packagePercentage);
-        await tx.package_member_connection_table.create({
+        const referralData = await tx.alliance_referral_table.findUnique({
+            where: {
+                alliance_referral_member_id: teamMemberId,
+            },
+        });
+        const referralChain = generateReferralChain(referralData?.alliance_referral_hierarchy ?? null, teamMemberId, 100);
+        let bountyLogs = [];
+        let transactionLogs = [];
+        const connectedData = await tx.package_member_connection_table.create({
             data: {
                 package_member_member_id: teamMemberId,
                 package_member_package_id: packageId,
@@ -492,6 +506,64 @@ export const packageReinvestPostModel = async (params) => {
                 package_member_status: "ENDED",
             },
         });
+        if (referralChain.length > 0) {
+            const batchSize = 100;
+            const limitedReferralChain = [];
+            for (let i = 0; i < referralChain.length; i++) {
+                if (referralChain[i].level > 10)
+                    break;
+                limitedReferralChain.push(referralChain[i]);
+            }
+            for (let i = 0; i < limitedReferralChain.length; i += batchSize) {
+                const batch = limitedReferralChain.slice(i, i + batchSize);
+                bountyLogs = batch.map((ref) => {
+                    const calculatedEarnings = (Number(amountToReinvest) * Number(ref.percentage)) / 100;
+                    return {
+                        package_ally_bounty_member_id: ref.referrerId,
+                        package_ally_bounty_percentage: ref.percentage,
+                        package_ally_bounty_earnings: calculatedEarnings,
+                        package_ally_bounty_type: ref.level === 1 ? "DIRECT" : "INDIRECT",
+                        package_ally_bounty_connection_id: connectedData.package_member_connection_id,
+                        package_ally_bounty_from: teamMemberId,
+                    };
+                });
+                transactionLogs = batch.map((ref) => {
+                    const calculatedEarnings = (Number(amountToReinvest) * Number(ref.percentage)) / 100;
+                    return {
+                        transaction_member_id: ref.referrerId,
+                        transaction_amount: calculatedEarnings,
+                        transaction_description: ref.level === 1
+                            ? "Direct Referral"
+                            : `Multiple Referral Level ${ref.level}`,
+                    };
+                });
+                await Promise.all(batch.map(async (ref) => {
+                    if (!ref.referrerId)
+                        return;
+                    const calculatedEarnings = (Number(amountToReinvest) * Number(ref.percentage)) / 100;
+                    await tx.alliance_earnings_table.update({
+                        where: { alliance_earnings_member_id: ref.referrerId },
+                        data: {
+                            alliance_referral_bounty: {
+                                increment: calculatedEarnings,
+                            },
+                            alliance_combined_earnings: {
+                                increment: calculatedEarnings,
+                            },
+                        },
+                    });
+                }));
+            }
+        }
+        if (bountyLogs.length > 0) {
+            console.log(bountyLogs);
+            await tx.package_ally_bounty_log.createMany({ data: bountyLogs });
+        }
+        if (transactionLogs.length > 0) {
+            await tx.alliance_transaction_table.createMany({
+                data: transactionLogs,
+            });
+        }
     });
 };
 function generateReferralChain(hierarchy, teamMemberId, maxDepth = 100) {
