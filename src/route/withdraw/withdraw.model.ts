@@ -458,19 +458,21 @@ export const withdrawListPostModel = async (params: {
   if (userFilter) {
     commonConditions.push(Prisma.raw(`u.user_id::TEXT = '${userFilter}'`));
   }
-
+  console.log(dateFilter);
   if (dateFilter?.start && dateFilter?.end) {
-    const startDate =
-      getPhilippinesTime(new Date(dateFilter.start || new Date()), "start") +
-      " 00:00:00.000";
+    const startDate = getPhilippinesTime(
+      new Date(dateFilter.start || new Date()),
+      "start"
+    );
 
-    const endDate =
-      getPhilippinesTime(new Date(dateFilter.end || new Date()), "end") +
-      " 23:59:59.999";
+    const endDate = getPhilippinesTime(
+      new Date(dateFilter.end || new Date()),
+      "end"
+    );
 
     commonConditions.push(
       Prisma.raw(
-        `t.alliance_withdrawal_request_date_updated::timestamptz at time zone 'Asia/Manila' BETWEEN '${startDate}'::timestamptz AND '${endDate}'::timestamptz`
+        `t.alliance_withdrawal_request_date_updated::timestamptz BETWEEN '${startDate}'::timestamptz AND '${endDate}'::timestamptz`
       )
     );
   }
@@ -552,7 +554,7 @@ export const withdrawListPostModel = async (params: {
       await prisma.alliance_withdrawal_request_table.aggregate({
         where: {
           alliance_withdrawal_request_status: "PENDING",
-          alliance_withdrawal_request_date: {
+          alliance_withdrawal_request_date_updated: {
             gte: getPhilippinesTime(
               new Date(dateFilter?.start || new Date()),
               "start"
@@ -573,7 +575,7 @@ export const withdrawListPostModel = async (params: {
       await prisma.alliance_withdrawal_request_table.aggregate({
         where: {
           alliance_withdrawal_request_status: "APPROVED",
-          alliance_withdrawal_request_date: {
+          alliance_withdrawal_request_date_updated: {
             gte: getPhilippinesTime(
               new Date(dateFilter?.start || new Date()),
               "start"
