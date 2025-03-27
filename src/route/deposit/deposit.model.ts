@@ -156,7 +156,7 @@ export const depositPutModel = async (params: {
         transaction_description: `Deposit ${
           status.charAt(0).toUpperCase() + status.slice(1).toLowerCase()
         } ${note ? `(${note})` : ""} ${
-          depositBonus > 0
+          depositBonus > 0 && status === "APPROVED"
             ? `+ ₱${depositBonus.toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
