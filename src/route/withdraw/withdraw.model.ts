@@ -868,14 +868,17 @@ export const withdrawListExportPostModel = async (params: {
   ];
 
   if (dateFilter?.start && dateFilter?.end) {
-    const startDate =
-      new Date(dateFilter.start || new Date()).toISOString().split("T")[0] +
-      " 00:00:00.000";
+    const startDate = getPhilippinesTime(
+      new Date(dateFilter.start || new Date()),
+      "start"
+    );
 
-    const endDate =
-      new Date(dateFilter.end || new Date()).toISOString().split("T")[0] +
-      " 23:59:59.999";
+    const endDate = getPhilippinesTime(
+      new Date(dateFilter.end || new Date()),
+      "end"
+    );
 
+    console.log(startDate, endDate);
     commonConditions.push(
       Prisma.raw(
         `t.alliance_withdrawal_request_date_updated::timestamptz at time zone 'Asia/Manila' BETWEEN '${startDate}'::timestamptz AND '${endDate}'::timestamptz`
