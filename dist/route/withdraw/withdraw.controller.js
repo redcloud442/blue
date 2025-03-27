@@ -1,5 +1,5 @@
 import { sendErrorResponse } from "../../utils/function.js";
-import { updateWithdrawModel, withdrawHideUserModel, withdrawHistoryModel, withdrawHistoryReportPostModel, withdrawHistoryReportPostTotalModel, withdrawListPostModel, withdrawModel, } from "./withdraw.model.js";
+import { updateWithdrawModel, withdrawHideUserModel, withdrawHistoryModel, withdrawHistoryReportPostModel, withdrawHistoryReportPostTotalModel, withdrawListExportPostModel, withdrawListPostModel, withdrawModel, } from "./withdraw.model.js";
 export const withdrawPostController = async (c) => {
     try {
         const params = c.get("params");
@@ -89,6 +89,21 @@ export const withdrawHideUserPostController = async (c) => {
         return c.json({ message: "User hidden" }, 200);
     }
     catch (e) {
+        return sendErrorResponse("Internal Server Error", 500);
+    }
+};
+export const withdrawListExportPostController = async (c) => {
+    try {
+        const params = c.get("params");
+        const teamMemberProfile = c.get("teamMemberProfile");
+        const data = await withdrawListExportPostModel({
+            parameters: params,
+            teamMemberProfile,
+        });
+        return c.json(data, 200);
+    }
+    catch (e) {
+        console.log(e);
         return sendErrorResponse("Internal Server Error", 500);
     }
 };

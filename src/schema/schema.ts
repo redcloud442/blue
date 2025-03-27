@@ -349,6 +349,15 @@ export const withdrawListPostSchema = z.object({
   showHiddenUser: z.boolean(),
 });
 
+export const withdrawListExportPostSchema = z.object({
+  page: z.number().min(1),
+  limit: z.number().min(1),
+  dateFilter: z.object({
+    start: z.string(),
+    end: z.string(),
+  }),
+});
+
 //dashboard schema
 
 export const dashboardPostSchema = z.object({

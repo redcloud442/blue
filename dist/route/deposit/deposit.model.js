@@ -105,7 +105,7 @@ export const depositPutModel = async (params) => {
         const depositBonus = getDepositBonus(updatedRequest.alliance_top_up_request_amount);
         await tx.alliance_transaction_table.create({
             data: {
-                transaction_description: `Deposit ${status.charAt(0).toUpperCase() + status.slice(1).toLowerCase()} ${note ? `(${note})` : ""} ${depositBonus > 0
+                transaction_description: `Deposit ${status.charAt(0).toUpperCase() + status.slice(1).toLowerCase()} ${note ? `(${note})` : ""} ${depositBonus > 0 && status === "APPROVED"
                     ? `+ ₱${depositBonus.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
