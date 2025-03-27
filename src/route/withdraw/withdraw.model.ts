@@ -461,11 +461,11 @@ export const withdrawListPostModel = async (params: {
 
   if (dateFilter?.start && dateFilter?.end) {
     const startDate =
-      new Date(dateFilter.start || new Date()).toISOString().split("T")[0] +
+      getPhilippinesTime(new Date(dateFilter.start || new Date()), "start") +
       " 00:00:00.000";
 
     const endDate =
-      new Date(dateFilter.end || new Date()).toISOString().split("T")[0] +
+      getPhilippinesTime(new Date(dateFilter.end || new Date()), "end") +
       " 23:59:59.999";
 
     commonConditions.push(
@@ -553,8 +553,14 @@ export const withdrawListPostModel = async (params: {
         where: {
           alliance_withdrawal_request_status: "PENDING",
           alliance_withdrawal_request_date: {
-            gte: getPhilippinesTime(new Date(new Date()), "start"),
-            lte: getPhilippinesTime(new Date(new Date()), "end"),
+            gte: getPhilippinesTime(
+              new Date(dateFilter?.start || new Date()),
+              "start"
+            ),
+            lte: getPhilippinesTime(
+              new Date(dateFilter?.end || new Date()),
+              "end"
+            ),
           },
         },
         _sum: {
@@ -568,8 +574,14 @@ export const withdrawListPostModel = async (params: {
         where: {
           alliance_withdrawal_request_status: "APPROVED",
           alliance_withdrawal_request_date: {
-            gte: getPhilippinesTime(new Date(new Date()), "start"),
-            lte: getPhilippinesTime(new Date(new Date()), "end"),
+            gte: getPhilippinesTime(
+              new Date(dateFilter?.start || new Date()),
+              "start"
+            ),
+            lte: getPhilippinesTime(
+              new Date(dateFilter?.end || new Date()),
+              "end"
+            ),
           },
         },
         _sum: {
