@@ -4,6 +4,7 @@ import {
   withdrawHideUserPostController,
   withdrawHistoryPostController,
   withdrawHistoryReportPostController,
+  withdrawListExportPostController,
   withdrawListPostController,
   withdrawPostController,
   withdrawTotalReportPostController,
@@ -13,6 +14,7 @@ import {
   withdrawHideUserPostMiddleware,
   withdrawHistoryPostMiddleware,
   withdrawHistoryReportPostMiddleware,
+  withdrawListExportPostMiddleware,
   withdrawListPostMiddleware,
   withdrawPostMiddleware,
   withdrawTotalReportPostMiddleware,
@@ -49,5 +51,11 @@ withdraw.put(
 );
 
 withdraw.post("/list", withdrawListPostMiddleware, withdrawListPostController);
+
+withdraw.post(
+  "/list/export",
+  withdrawListExportPostMiddleware,
+  withdrawListExportPostController
+);
 
 export default withdraw;

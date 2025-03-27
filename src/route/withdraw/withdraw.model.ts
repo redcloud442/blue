@@ -1,5 +1,6 @@
 import type {
   WithdrawalRequestData,
+  WithdrawListExportData,
   WithdrawReturnDataType,
 } from "@/utils/types.js";
 import { Prisma, type alliance_member_table } from "@prisma/client";
@@ -835,4 +836,115 @@ export const withdrawHideUserModel = async (params: {
       },
     });
   }
+};
+
+export const withdrawListExportPostModel = async (params: {
+  parameters: {
+    page: number;
+    limit: number;
+    dateFilter?: {
+      start: string;
+      end: string;
+    };
+  };
+  teamMemberProfile: alliance_member_table;
+}) => {
+  const { parameters, teamMemberProfile } = params;
+  let returnData = {
+    data: [] as WithdrawListExportData[],
+    totalCount: 0,
+  };
+
+  const { page, limit, dateFilter } = parameters;
+
+  const offset = (page - 1) * limit;
+
+  const orderBy = Prisma.sql`ORDER BY t.alliance_withdrawal_request_date_created DESC`;
+
+  const commonConditions: Prisma.Sql[] = [
+    Prisma.raw(
+      `m.alliance_member_alliance_id = '${teamMemberProfile.alliance_member_alliance_id}'::uuid AND t.alliance_withdrawal_request_member_id NOT IN (SELECT alliance_hidden_user_member_id FROM alliance_schema.alliance_hidden_user_table)`
+    ),
+  ];
+
+  if (dateFilter?.start && dateFilter?.end) {
+    const startDate =
+      new Date(dateFilter.start || new Date()).toISOString().split("T")[0] +
+      " 00:00:00.000";
+
+    const endDate =
+      new Date(dateFilter.end || new Date()).toISOString().split("T")[0] +
+      " 23:59:59.999";
+
+    commonConditions.push(
+      Prisma.raw(
+        `t.alliance_withdrawal_request_date_updated::timestamptz at time zone 'Asia/Manila' BETWEEN '${startDate}'::timestamptz AND '${endDate}'::timestamptz`
+      )
+    );
+  }
+
+  commonConditions.push(
+    Prisma.raw(`t.alliance_withdrawal_request_status = 'APPROVED'`)
+  );
+
+  const dataQueryConditions = [...commonConditions];
+
+  const dataWhereClause = Prisma.sql`${Prisma.join(
+    dataQueryConditions,
+    " AND "
+  )}`;
+
+  const countWhereClause = Prisma.sql`${Prisma.join(
+    commonConditions,
+    " AND "
+  )}`;
+
+  const withdrawals: WithdrawListExportData[] = await prisma.$queryRaw`
+    SELECT 
+      u.user_username AS "Requestor Username",
+      t.alliance_withdrawal_request_status AS Status,
+      t.alliance_withdrawal_request_withdraw_amount AS Amount,
+      t.alliance_withdrawal_request_type AS "Bank Account",
+      t.alliance_withdrawal_request_bank_name AS "Bank Name",
+      t.alliance_withdrawal_request_account AS "Account Number",
+      t.alliance_withdrawal_request_date_created AS "Date Created",
+      t.alliance_withdrawal_request_withdraw_type AS "Withdrawal Type",
+      t.alliance_withdrawal_request_date_updated AS "Date Updated",
+      approver.user_username AS "Approved By"
+    FROM alliance_schema.alliance_withdrawal_request_table t
+    JOIN alliance_schema.alliance_member_table m 
+      ON t.alliance_withdrawal_request_member_id = m.alliance_member_id
+    JOIN user_schema.user_table u 
+      ON u.user_id = m.alliance_member_user_id
+    LEFT JOIN alliance_schema.alliance_member_table mt 
+      ON mt.alliance_member_id = t.alliance_withdrawal_request_approved_by
+    LEFT JOIN user_schema.user_table approver 
+      ON approver.user_id = mt.alliance_member_user_id
+    WHERE ${dataWhereClause}
+    ${orderBy}
+    LIMIT ${Prisma.raw(limit.toString())}
+    OFFSET ${Prisma.raw(offset.toString())}
+  `;
+
+  const statusCounts: { status: string; count: bigint } =
+    await prisma.$queryRaw`
+      SELECT 
+        COUNT(*) AS count
+      FROM alliance_schema.alliance_withdrawal_request_table t
+      JOIN alliance_schema.alliance_member_table m 
+        ON t.alliance_withdrawal_request_member_id = m.alliance_member_id
+      JOIN user_schema.user_table u 
+        ON u.user_id = m.alliance_member_user_id
+      LEFT JOIN alliance_schema.alliance_member_table mt 
+        ON mt.alliance_member_id = t.alliance_withdrawal_request_approved_by
+      LEFT JOIN user_schema.user_table approver 
+        ON approver.user_id = mt.alliance_member_user_id
+      WHERE ${countWhereClause}
+      GROUP BY t.alliance_withdrawal_request_status
+    `;
+
+  returnData.data = withdrawals;
+  returnData.totalCount = Number(statusCounts.count);
+
+  return returnData;
 };
