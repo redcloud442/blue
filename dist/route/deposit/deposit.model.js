@@ -1,7 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { endOfDay, endOfMonth, parseISO, setDate, setHours, setMilliseconds, setMinutes, setSeconds, } from "date-fns";
 import {} from "../../schema/schema.js";
-import { getDepositBonus, getPhilippinesTime } from "../../utils/function.js";
+import { getPhilippinesTime } from "../../utils/function.js";
 import prisma from "../../utils/prisma.js";
 export const depositPostModel = async (params) => {
     const { amount, accountName, accountNumber, topUpMode } = params.TopUpFormValues;
@@ -66,22 +66,6 @@ export const depositPutModel = async (params) => {
     if (!merchant && teamMemberProfile.alliance_member_role === "MERCHANT")
         throw new Error("Merchant not found.");
     return await prisma.$transaction(async (tx) => {
-        const existingDeposit = await prisma.alliance_top_up_request_table.findFirst({
-            where: {
-                alliance_top_up_request_member_id: teamMemberProfile.alliance_member_id,
-                alliance_top_up_request_status: "PENDING",
-            },
-            take: 1,
-            orderBy: {
-                alliance_top_up_request_date: "desc",
-            },
-            select: {
-                alliance_top_up_request_id: true,
-            },
-        });
-        if (existingDeposit) {
-            throw new Error("You cannot make a new deposit request.");
-        }
         const existingRequest = await tx.alliance_top_up_request_table.findUnique({
             where: {
                 alliance_top_up_request_id: requestId,
@@ -102,17 +86,11 @@ export const depositPutModel = async (params) => {
                 alliance_top_up_request_date_updated: new Date(),
             },
         });
-        const depositBonus = getDepositBonus(updatedRequest.alliance_top_up_request_amount);
         await tx.alliance_transaction_table.create({
             data: {
-                transaction_description: `Deposit ${status.charAt(0).toUpperCase() + status.slice(1).toLowerCase()} ${note ? `(${note})` : ""} ${depositBonus > 0 && status === "APPROVED"
-                    ? `+ ₱${depositBonus.toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                    })} Bonus`
-                    : ""}`,
+                transaction_description: `Deposit ${status.charAt(0).toUpperCase() + status.slice(1).toLowerCase()} ${note ? `(${note})` : ""}`,
                 transaction_details: `Account Name: ${updatedRequest.alliance_top_up_request_name}, Account Number: ${updatedRequest.alliance_top_up_request_account}`,
-                transaction_amount: updatedRequest.alliance_top_up_request_amount + depositBonus,
+                transaction_amount: updatedRequest.alliance_top_up_request_amount,
                 transaction_member_id: updatedRequest.alliance_top_up_request_member_id,
                 transaction_attachment: status === "REJECTED"
                     ? updatedRequest.alliance_top_up_request_attachment
@@ -131,10 +109,10 @@ export const depositPutModel = async (params) => {
                 },
                 update: {
                     alliance_olympus_wallet: {
-                        increment: updatedRequest.alliance_top_up_request_amount + depositBonus,
+                        increment: updatedRequest.alliance_top_up_request_amount,
                     },
                     alliance_combined_earnings: {
-                        increment: updatedRequest.alliance_top_up_request_amount + depositBonus,
+                        increment: updatedRequest.alliance_top_up_request_amount,
                     },
                 },
             });

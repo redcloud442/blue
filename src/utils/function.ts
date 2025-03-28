@@ -85,11 +85,12 @@ export const toNonNegative = (num: number) =>
 
 export const getDepositBonus = (amount: number) => {
   const depositTiers = [
-    { deposit: 10000, percentage: 0.001 },
-    { deposit: 25000, percentage: 0.005 },
-    { deposit: 50000, percentage: 0.01 },
-    { deposit: 75000, percentage: 0.02 },
-    { deposit: 100000, percentage: 0.03 },
+    { deposit: 5000, count: 1 },
+    { deposit: 10000, count: 2 },
+    { deposit: 30000, count: 4 },
+    { deposit: 50000, count: 6 },
+    { deposit: 70000, count: 8 },
+    { deposit: 100000, count: 10 },
   ];
 
   if (amount < 10000) {
@@ -103,5 +104,5 @@ export const getDepositBonus = (amount: number) => {
       depositTiers[0]
     );
 
-  return amount * lowestTier.percentage;
+  return lowestTier.count;
 };

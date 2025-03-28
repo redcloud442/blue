@@ -458,7 +458,7 @@ export const withdrawListPostModel = async (params: {
   if (userFilter) {
     commonConditions.push(Prisma.raw(`u.user_id::TEXT = '${userFilter}'`));
   }
-  console.log(dateFilter);
+
   if (dateFilter?.start && dateFilter?.end) {
     const startDate = getPhilippinesTime(
       new Date(dateFilter.start || new Date()),
@@ -892,7 +892,6 @@ export const withdrawListExportPostModel = async (params: {
       "end"
     );
 
-    console.log(startDate, endDate);
     commonConditions.push(
       Prisma.raw(
         `t.alliance_withdrawal_request_date_updated::timestamptz at time zone 'Asia/Manila' BETWEEN '${startDate}'::timestamptz AND '${endDate}'::timestamptz`

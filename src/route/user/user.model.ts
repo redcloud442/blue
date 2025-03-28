@@ -801,39 +801,39 @@ export const userGetSearchModel = async (params: { userName: string }) => {
 };
 
 export const userReferralModel = async (params: {
-    memberId: string;
-    dateFilter: {
-      start: string;
-      end: string;
-    };
-  }) => {
-    const { memberId, dateFilter } = params;
+  memberId: string;
+  dateFilter: {
+    start: string;
+    end: string;
+  };
+}) => {
+  const { memberId, dateFilter } = params;
 
-    // Aggregate Direct and Indirect referrals separately
-    const referrals = await prisma.package_ally_bounty_log.groupBy({
-      by: ["package_ally_bounty_type"],
-      where: {
-        package_ally_bounty_member_id: memberId,
-        package_ally_bounty_log_date_created: {
-          gte: getPhilippinesTime(new Date(dateFilter.start), "start"),
-          lte: getPhilippinesTime(new Date(dateFilter.end), "end"),
-        },
+  // Aggregate Direct and Indirect referrals separately
+  const referrals = await prisma.package_ally_bounty_log.groupBy({
+    by: ["package_ally_bounty_type"],
+    where: {
+      package_ally_bounty_member_id: memberId,
+      package_ally_bounty_log_date_created: {
+        gte: getPhilippinesTime(new Date(dateFilter.start), "start"),
+        lte: getPhilippinesTime(new Date(dateFilter.end), "end"),
       },
-      _sum: { package_ally_bounty_earnings: true },
-    });
+    },
+    _sum: { package_ally_bounty_earnings: true },
+  });
 
-    // Convert the result into an object with direct & indirect earnings
+  // Convert the result into an object with direct & indirect earnings
   const result = {
     directReferral: 0,
     indirectReferral: 0,
   };
-  console.log(referrals);
-    referrals.forEach((entry) => {
-      if (entry.package_ally_bounty_type === "DIRECT") {
-        result.directReferral = entry._sum.package_ally_bounty_earnings || 0;
-      } else if (entry.package_ally_bounty_type === "INDIRECT") {
-        result.indirectReferral = entry._sum.package_ally_bounty_earnings || 0;
-      }
-    });
-    return result;
-  };
+
+  referrals.forEach((entry) => {
+    if (entry.package_ally_bounty_type === "DIRECT") {
+      result.directReferral = entry._sum.package_ally_bounty_earnings || 0;
+    } else if (entry.package_ally_bounty_type === "INDIRECT") {
+      result.indirectReferral = entry._sum.package_ally_bounty_earnings || 0;
+    }
+  });
+  return result;
+};

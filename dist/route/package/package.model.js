@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client";
-import { toNonNegative } from "../../utils/function.js";
+import { getDepositBonus, toNonNegative } from "../../utils/function.js";
 import prisma from "../../utils/prisma.js";
 export const packagePostModel = async (params) => {
     const { amount, packageId, teamMemberProfile } = params;
@@ -164,9 +164,6 @@ export const packagePostModel = async (params) => {
                 },
             });
         }
-        console.log(transactionLogs);
-        console.log(bountyLogs);
-        console.log(referralChain);
         return connectionData;
     });
     return connectionData;
@@ -468,8 +465,11 @@ export const packageReinvestPostModel = async (params) => {
             },
         });
         const referralChain = generateReferralChain(referralData?.alliance_referral_hierarchy ?? null, teamMemberId, 100);
+        const count = getDepositBonus(amountToReinvest);
         let bountyLogs = [];
         let transactionLogs = [];
+        let transactionLogsSpin = [];
+        let spinCountLogs = [];
         const connectedData = await tx.package_member_connection_table.create({
             data: {
                 package_member_member_id: teamMemberId,
@@ -481,13 +481,32 @@ export const packageReinvestPostModel = async (params) => {
                 package_member_is_reinvestment: true,
             },
         });
-        await tx.alliance_transaction_table.create({
-            data: {
-                transaction_member_id: teamMemberId,
-                transaction_amount: amountToReinvest,
-                transaction_description: `Package Reinvested: ${packageData.package_name}`,
-            },
+        await tx.alliance_transaction_table.createMany({
+            data: [
+                {
+                    transaction_member_id: teamMemberId,
+                    transaction_amount: amountToReinvest,
+                    transaction_description: `Package Reinvested: ${packageData.package_name}`,
+                },
+                ...(count > 0
+                    ? [
+                        {
+                            transaction_member_id: teamMemberId,
+                            transaction_amount: 0,
+                            transaction_description: `Package Spin + ${count}`,
+                        },
+                    ]
+                    : []),
+            ],
         });
+        if (count > 0) {
+            await tx.alliance_wheel_log_table.update({
+                where: { alliance_wheel_member_id: teamMemberId },
+                data: {
+                    alliance_wheel_spin_count: { increment: count },
+                },
+            });
+        }
         await tx.package_member_connection_table.update({
             where: { package_member_connection_id: packageConnectionId },
             data: {
@@ -537,6 +556,21 @@ export const packageReinvestPostModel = async (params) => {
                             : `Multiple Referral Level ${ref.level}`,
                     };
                 });
+                if (count > 0) {
+                    transactionLogsSpin = batch.map((ref) => {
+                        return {
+                            transaction_member_id: ref.referrerId,
+                            transaction_amount: 0,
+                            transaction_description: `Package Referral Spin + ${count}`,
+                        };
+                    });
+                    spinCountLogs = batch.map((ref) => {
+                        return {
+                            alliance_wheel_member_id: ref.referrerId,
+                            alliance_wheel_spin_count: count,
+                        };
+                    });
+                }
                 await Promise.all(batch.map(async (ref) => {
                     if (!ref.referrerId)
                         return;
@@ -556,13 +590,26 @@ export const packageReinvestPostModel = async (params) => {
             }
         }
         if (bountyLogs.length > 0) {
-            console.log(bountyLogs);
             await tx.package_ally_bounty_log.createMany({ data: bountyLogs });
         }
         if (transactionLogs.length > 0) {
             await tx.alliance_transaction_table.createMany({
-                data: transactionLogs,
+                data: count > 0
+                    ? [...transactionLogs, ...transactionLogsSpin]
+                    : transactionLogs,
             });
+        }
+        console.log(spinCountLogs);
+        console.log(transactionLogs);
+        if (spinCountLogs.length > 0 && count > 0) {
+            await Promise.all(spinCountLogs.map((ref) => tx.alliance_wheel_log_table.update({
+                where: { alliance_wheel_member_id: ref.alliance_wheel_member_id },
+                data: {
+                    alliance_wheel_spin_count: {
+                        increment: count,
+                    },
+                },
+            })));
         }
     });
 };

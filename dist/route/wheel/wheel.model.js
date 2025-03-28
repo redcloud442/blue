@@ -64,7 +64,6 @@ export const wheelPostModel = async (params) => {
       WHERE alliance_wheel_member_id = '${teamMemberProfile.alliance_member_id}'::uuid
       FOR UPDATE SKIP LOCKED`);
         let logEntry = wheelLog[0];
-        console.log(logEntry);
         // If no log entry exists, create one
         if (!logEntry) {
             logEntry = await tx.alliance_wheel_log_table.create({

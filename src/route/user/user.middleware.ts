@@ -579,43 +579,41 @@ export const userGetSearchMiddleware = async (c: Context, next: Next) => {
 };
 
 export const userReferralMiddleware = async (c: Context, next: Next) => {
-    const user = c.get("user");
+  const user = c.get("user");
 
-    const response = await protectionAdmin(user.id, prisma);
+  const response = await protectionAdmin(user.id, prisma);
 
-    if (response instanceof Response) {
-      return response;
-    }
+  if (response instanceof Response) {
+    return response;
+  }
 
-    const { teamMemberProfile } = response;
+  const { teamMemberProfile } = response;
 
-    if (!teamMemberProfile) {
-      return sendErrorResponse("Unauthorized", 401);
-    }
+  if (!teamMemberProfile) {
+    return sendErrorResponse("Unauthorized", 401);
+  }
 
-    const isAllowed = await rateLimit(
-      `rate-limit:${teamMemberProfile.alliance_member_id}:user-referral`,
-      50,
-      "1m",
-      c
-    );
+  const isAllowed = await rateLimit(
+    `rate-limit:${teamMemberProfile.alliance_member_id}:user-referral`,
+    50,
+    "1m",
+    c
+  );
 
-    if (!isAllowed) {
-      return sendErrorResponse("Too Many Requests", 429);
-    }
+  if (!isAllowed) {
+    return sendErrorResponse("Too Many Requests", 429);
+  }
 
-    const { id } = c.req.param();
+  const { id } = c.req.param();
 
-    const { dateFilter } = await c.req.json();
+  const { dateFilter } = await c.req.json();
 
-
-    const validate = userGetReferralSchema.safeParse({
-      memberId: id,
-      dateFilter,
-    });
+  const validate = userGetReferralSchema.safeParse({
+    memberId: id,
+    dateFilter,
+  });
 
   if (!validate.success) {
-    console.log(validate.error);
     return sendErrorResponse("Invalid Request", 400);
   }
 
@@ -623,4 +621,4 @@ export const userReferralMiddleware = async (c: Context, next: Next) => {
   c.set("params", validate.data);
 
   await next();
-  };
+};
