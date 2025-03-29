@@ -343,13 +343,15 @@ export const depositListPostModel = async (
   }
 
   if (dateFilter?.start && dateFilter?.end) {
-    const startDate =
-      new Date(dateFilter.start || new Date()).toISOString().split("T")[0] +
-      " 00:00:00.000";
+    const startDate = getPhilippinesTime(
+      new Date(dateFilter.start || new Date()),
+      "start"
+    );
 
-    const endDate =
-      new Date(dateFilter.end || new Date()).toISOString().split("T")[0] +
-      " 23:59:59.999";
+    const endDate = getPhilippinesTime(
+      new Date(dateFilter.end || new Date()),
+      "end"
+    );
 
     commonConditions.push(
       Prisma.raw(
@@ -462,7 +464,28 @@ export const depositListPostModel = async (
       },
     });
 
+    const deposit = await prisma.alliance_top_up_request_table.aggregate({
+      _sum: {
+        alliance_top_up_request_amount: true,
+      },
+      where: {
+        alliance_top_up_request_status: "PENDING",
+        alliance_top_up_request_date: {
+          gte: getPhilippinesTime(
+            dateFilter?.start ? new Date(dateFilter.start) : new Date(),
+            "start"
+          ),
+          lte: getPhilippinesTime(
+            dateFilter?.end ? new Date(dateFilter.end) : new Date(),
+            "end"
+          ),
+        },
+      },
+    });
+
     returnData.merchantBalance = merchant?.merchant_member_balance;
+    returnData.totalPendingDeposit =
+      deposit?._sum.alliance_top_up_request_amount || 0;
   }
 
   return JSON.parse(

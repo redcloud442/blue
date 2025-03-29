@@ -17,6 +17,7 @@ app.use(
         process.env.NODE_ENV === "development"
           ? "http://localhost:3000"
           : [
+              "https://paldistribution.live",
               "https://primepinas.com",
               "https://website.primepinas.com",
               "https://front.primepinas.com",
