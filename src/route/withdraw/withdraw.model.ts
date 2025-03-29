@@ -571,37 +571,40 @@ export const withdrawListPostModel = async (params: {
         },
       });
 
-    const totalApprovedCount =
-      await prisma.alliance_withdrawal_request_table.aggregate({
-        where: {
-          alliance_withdrawal_request_status: "APPROVED",
-          alliance_withdrawal_request_date_updated: {
-            gte: getPhilippinesTime(
-              new Date(dateFilter?.start || new Date()),
-              "start"
-            ),
-            lte: getPhilippinesTime(
-              new Date(dateFilter?.end || new Date()),
-              "end"
-            ),
-          },
-        },
-        _sum: {
-          alliance_withdrawal_request_amount: true,
-          alliance_withdrawal_request_fee: true,
-        },
-      });
     returnData.totalWithdrawals = {
       amount:
         Number(aggregateResult._sum.alliance_withdrawal_request_amount || 0) -
         Number(aggregateResult._sum.alliance_withdrawal_request_fee || 0),
-      approvedAmount:
-        Number(
-          totalApprovedCount._sum.alliance_withdrawal_request_amount || 0
-        ) -
-        Number(totalApprovedCount._sum.alliance_withdrawal_request_fee || 0),
     };
   }
+
+  const totalApprovedCount =
+    await prisma.alliance_withdrawal_request_table.aggregate({
+      where: {
+        alliance_withdrawal_request_status: "APPROVED",
+        alliance_withdrawal_request_date_updated: {
+          gte: getPhilippinesTime(
+            new Date(dateFilter?.start || new Date()),
+            "start"
+          ),
+          lte: getPhilippinesTime(
+            new Date(dateFilter?.end || new Date()),
+            "end"
+          ),
+        },
+      },
+      _sum: {
+        alliance_withdrawal_request_amount: true,
+        alliance_withdrawal_request_fee: true,
+      },
+    });
+
+  returnData.totalWithdrawals = {
+    amount: returnData.totalWithdrawals?.amount || 0,
+    approvedAmount:
+      Number(totalApprovedCount._sum.alliance_withdrawal_request_amount || 0) -
+      Number(totalApprovedCount._sum.alliance_withdrawal_request_fee || 0),
+  };
 
   ["APPROVED", "REJECTED", "PENDING"].forEach((status) => {
     const match = statusCounts.find((item) => item.status === status);

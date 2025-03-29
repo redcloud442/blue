@@ -25,7 +25,12 @@ app.use(
     ],
     credentials: true,
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization"],
+    allowHeaders: [
+      "Content-Type",
+      "Authorization",
+      "x-tenant-id",
+      "Access-Control-Allow-Origin",
+    ],
     exposeHeaders: ["Content-Range", "X-Total-Count"],
   }),
   supabaseMiddleware()

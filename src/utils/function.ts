@@ -1,3 +1,4 @@
+import { createWorker } from "tesseract.js";
 import { supabaseClient } from "./supabase.js";
 
 export const sendErrorResponse = (message: string, status: number) =>
@@ -106,3 +107,5 @@ export const getDepositBonus = (amount: number) => {
 
   return lowestTier.count;
 };
+
+export const worker = await createWorker();

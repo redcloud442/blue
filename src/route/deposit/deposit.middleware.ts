@@ -42,22 +42,22 @@ export const depositMiddleware = async (c: Context, next: Next) => {
     return sendErrorResponse("Too Many Requests", 429);
   }
 
-  const { TopUpFormValues } = await c.req.json();
+  const formData = await c.req.formData();
 
-  const { amount, topUpMode, accountName, accountNumber } =
-    TopUpFormValues as unknown as {
-      amount: number;
-      topUpMode: string;
-      accountName: string;
-      accountNumber: string;
-      reference: string;
-    };
+  const amount = formData.get("amount");
+  const topUpMode = formData.get("topUpMode");
+  const accountName = formData.get("accountName");
+  const accountNumber = formData.get("accountNumber");
+  const file = formData.get("file");
+
+  console.log(amount, topUpMode, accountName, accountNumber, file);
 
   const sanitizedData = depositSchema.safeParse({
     amount,
     topUpMode,
     accountName,
     accountNumber,
+    file,
   });
 
   if (!sanitizedData.success) {

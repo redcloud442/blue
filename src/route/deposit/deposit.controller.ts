@@ -1,5 +1,5 @@
+import { Prisma } from "@prisma/client";
 import type { Context } from "node:vm";
-import { supabaseClient } from "../../utils/supabase.js";
 import {
   depositHistoryPostModel,
   depositListPostModel,
@@ -10,10 +10,6 @@ import {
 } from "./deposit.model.js";
 
 export const depositPostController = async (c: Context) => {
-  const supabase = supabaseClient;
-
-  const { publicUrl } = await c.req.json();
-
   try {
     const teamMemberProfile = c.get("teamMemberProfile");
     const params = c.get("params");
@@ -22,13 +18,18 @@ export const depositPostController = async (c: Context) => {
       TopUpFormValues: {
         ...params,
       },
-      publicUrl: publicUrl,
       teamMemberProfile: teamMemberProfile,
     });
 
     return c.json({ message: "Deposit Created" }, { status: 200 });
   } catch (e) {
-    await supabase.storage.from("REQUEST_ATTACHMENTS").remove([publicUrl]);
+    if (
+      e instanceof Error &&
+      !(e instanceof Prisma.PrismaClientKnownRequestError)
+    ) {
+      return c.json({ message: e.message }, { status: 400 });
+    }
+
     return c.json({ message: "Internal Server Error" }, { status: 500 });
   }
 };

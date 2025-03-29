@@ -10,19 +10,18 @@ import {
   setSeconds,
 } from "date-fns";
 import { type DepositFormValues } from "../../schema/schema.js";
-import { getPhilippinesTime } from "../../utils/function.js";
+import { bankWords } from "../../utils/constant.js";
+import { getPhilippinesTime, worker } from "../../utils/function.js";
 import prisma from "../../utils/prisma.js";
+import { supabaseClient } from "../../utils/supabase.js";
 import type { ReturnDataType, TopUpRequestData } from "../../utils/types.js";
 
 export const depositPostModel = async (params: {
   TopUpFormValues: DepositFormValues;
-  publicUrl: string;
   teamMemberProfile: alliance_member_table;
 }) => {
-  const { amount, accountName, accountNumber, topUpMode } =
+  const { amount, accountName, accountNumber, topUpMode, file } =
     params.TopUpFormValues;
-
-  const { publicUrl } = params;
 
   if (amount.length > 7 || amount.length < 3) {
     throw new Error("Invalid amount");
@@ -58,6 +57,73 @@ export const depositPostModel = async (params: {
 
   if (existingDeposit) {
     throw new Error("You cannot make a new deposit request.");
+  }
+
+  const arrayBuffer = await file.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  await worker.setParameters({
+    preserve_interword_spaces: "1",
+  });
+
+  const {
+    data: { text },
+  } = await worker.recognize(buffer, {
+    pdfTextOnly: true,
+  });
+
+  const bankKeywords = await bankWords();
+
+  const normalize = (str: string) =>
+    str
+      .toLowerCase()
+      .replace(/[^\w\s₱\+]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const matchedKeywords = bankKeywords.filter((keyword) =>
+    normalize(text).includes(normalize(keyword))
+  );
+
+  console.log(matchedKeywords);
+  console.log(normalize(text));
+
+  const hasRef = /\b\d{4} ?\d{3} ?\d{6}\b/.test(text);
+  const hasPhone =
+    /\+63\d{10}/.test(text) || /\+63 ?\d{3} ?\d{3} ?\d{4}/.test(text);
+  const hasAmount =
+    /(?:total\s*amount\s*sent|amount)[^\d₱]*₱?\d{2,7}\.\d{2}/i.test(text);
+  const hasTotalLabel = /total\s*amount\s*sent/i.test(text);
+
+  const matchedPatterns = [hasAmount, hasRef, hasPhone, hasTotalLabel].filter(
+    Boolean
+  ).length;
+
+  const hasMinimumKeywordMatch = matchedKeywords.length >= 2;
+  const hasMinimumPatternMatch = matchedPatterns >= 3;
+
+  if (!hasMinimumKeywordMatch && !hasMinimumPatternMatch) {
+    throw new Error(
+      "Invalid receipt. Please upload a clearer screenshot or proper receipt."
+    );
+  }
+  await worker.terminate();
+
+  const filePath = `uploads/${Date.now()}_${file.name}`;
+
+  const { error: uploadError } = await supabaseClient.storage
+    .from("REQUEST_ATTACHMENTS")
+    .upload(filePath, file, { upsert: true });
+
+  const publicUrl =
+    "https://qkrltxqicdallokpzdif.supabase.co/storage/v1/object/public/REQUEST_ATTACHMENTS/" +
+    filePath;
+
+  if (uploadError) {
+    await supabaseClient.storage
+      .from("REQUEST_ATTACHMENTS")
+      .remove([publicUrl]);
+    throw new Error("File upload failed.");
   }
 
   await prisma.$transaction(async (tx) => {
@@ -461,8 +527,22 @@ export const depositListPostModel = async (
         merchant_member_balance: true,
       },
     });
-
+    const totalPendingDeposit =
+      await prisma.alliance_top_up_request_table.aggregate({
+        _sum: {
+          alliance_top_up_request_amount: true,
+        },
+        where: {
+          alliance_top_up_request_status: "PENDING",
+          alliance_top_up_request_date: {
+            gte: getPhilippinesTime(new Date() || dateFilter.start, "start"),
+            lte: getPhilippinesTime(new Date() || dateFilter.end, "end"),
+          },
+        },
+      });
     returnData.merchantBalance = merchant?.merchant_member_balance;
+    returnData.totalPendingDeposit =
+      totalPendingDeposit._sum.alliance_top_up_request_amount || 0;
   }
 
   return JSON.parse(
