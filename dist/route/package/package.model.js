@@ -406,6 +406,8 @@ export const packageReinvestPostModel = async (params) => {
     const { packageConnectionId, packageId, amountToReinvest, teamMemberId } = params;
     await prisma.$transaction(async (tx) => {
         const currentTimestamp = new Date();
+        const amountBonus = amountToReinvest * 0.01;
+        const finalAmount = amountToReinvest + amountBonus;
         const packageConnection = await tx.package_member_connection_table.findUnique({
             where: {
                 package_member_connection_id: packageConnectionId,
@@ -458,14 +460,14 @@ export const packageReinvestPostModel = async (params) => {
             throw new Error("Invalid request.");
         }
         const packagePercentage = new Prisma.Decimal(Number(packageData.package_percentage)).div(100);
-        const packageAmountEarnings = new Prisma.Decimal(amountToReinvest).mul(packagePercentage);
+        const packageAmountEarnings = new Prisma.Decimal(finalAmount).mul(packagePercentage);
         const referralData = await tx.alliance_referral_table.findUnique({
             where: {
                 alliance_referral_member_id: teamMemberId,
             },
         });
         const referralChain = generateReferralChain(referralData?.alliance_referral_hierarchy ?? null, teamMemberId, 100);
-        const count = getDepositBonus(amountToReinvest);
+        const count = getDepositBonus(finalAmount);
         let bountyLogs = [];
         let transactionLogs = [];
         let transactionLogsSpin = [];
@@ -474,7 +476,7 @@ export const packageReinvestPostModel = async (params) => {
             data: {
                 package_member_member_id: teamMemberId,
                 package_member_package_id: packageId,
-                package_member_amount: Number(amountToReinvest.toFixed(2)),
+                package_member_amount: Number(finalAmount.toFixed(2)),
                 package_amount_earnings: Number(packageAmountEarnings.toFixed(2)),
                 package_member_status: "ACTIVE",
                 package_member_completion_date: new Date(Date.now() + packageData.packages_days * 24 * 60 * 60 * 1000),
@@ -485,8 +487,8 @@ export const packageReinvestPostModel = async (params) => {
             data: [
                 {
                     transaction_member_id: teamMemberId,
-                    transaction_amount: amountToReinvest,
-                    transaction_description: `Package Reinvested: ${packageData.package_name}`,
+                    transaction_amount: finalAmount,
+                    transaction_description: `Package Reinvested: ${packageData.package_name} + 1% Bonus`,
                 },
                 ...(count > 0
                     ? [
@@ -536,7 +538,7 @@ export const packageReinvestPostModel = async (params) => {
             for (let i = 0; i < limitedReferralChain.length; i += batchSize) {
                 const batch = limitedReferralChain.slice(i, i + batchSize);
                 bountyLogs = batch.map((ref) => {
-                    const calculatedEarnings = (Number(amountToReinvest) * Number(ref.percentage)) / 100;
+                    const calculatedEarnings = (Number(finalAmount) * Number(ref.percentage)) / 100;
                     return {
                         package_ally_bounty_member_id: ref.referrerId,
                         package_ally_bounty_percentage: ref.percentage,
@@ -547,7 +549,7 @@ export const packageReinvestPostModel = async (params) => {
                     };
                 });
                 transactionLogs = batch.map((ref) => {
-                    const calculatedEarnings = (Number(amountToReinvest) * Number(ref.percentage)) / 100;
+                    const calculatedEarnings = (Number(finalAmount) * Number(ref.percentage)) / 100;
                     return {
                         transaction_member_id: ref.referrerId,
                         transaction_amount: calculatedEarnings,
@@ -574,7 +576,7 @@ export const packageReinvestPostModel = async (params) => {
                 await Promise.all(batch.map(async (ref) => {
                     if (!ref.referrerId)
                         return;
-                    const calculatedEarnings = (Number(amountToReinvest) * Number(ref.percentage)) / 100;
+                    const calculatedEarnings = (Number(finalAmount) * Number(ref.percentage)) / 100;
                     await tx.alliance_earnings_table.update({
                         where: { alliance_earnings_member_id: ref.referrerId },
                         data: {
@@ -599,8 +601,6 @@ export const packageReinvestPostModel = async (params) => {
                     : transactionLogs,
             });
         }
-        console.log(spinCountLogs);
-        console.log(transactionLogs);
         if (spinCountLogs.length > 0 && count > 0) {
             await Promise.all(spinCountLogs.map((ref) => tx.alliance_wheel_log_table.update({
                 where: { alliance_wheel_member_id: ref.alliance_wheel_member_id },
@@ -649,6 +649,7 @@ function getBonusPercentage(level) {
 function deductFromWallets(amount, combinedWallet, olympusWallet, olympusEarnings, referralWallet, winningEarnings) {
     let remaining = amount;
     let isReinvestment = false;
+    console.log(combinedWallet, olympusWallet, olympusEarnings, referralWallet, winningEarnings);
     // Validate total funds
     if (combinedWallet < amount) {
         throw new Error("Insufficient balance in combined wallet.");
@@ -696,6 +697,7 @@ function deductFromWallets(amount, combinedWallet, olympusWallet, olympusEarning
             winningEarnings = 0;
         }
     }
+    remaining = Math.round(remaining * 1000000) / 1000000;
     if (remaining > 0) {
         throw new Error("Insufficient funds to complete the transaction.");
     }

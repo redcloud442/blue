@@ -9,13 +9,13 @@ import {
   setMinutes,
   setSeconds,
 } from "date-fns";
+import sharp from "sharp";
 import { type DepositFormValues } from "../../schema/schema.js";
 import { bankWords } from "../../utils/constant.js";
 import { getPhilippinesTime, worker } from "../../utils/function.js";
 import prisma from "../../utils/prisma.js";
 import { supabaseClient } from "../../utils/supabase.js";
 import type { ReturnDataType, TopUpRequestData } from "../../utils/types.js";
-
 export const depositPostModel = async (params: {
   TopUpFormValues: DepositFormValues;
   teamMemberProfile: alliance_member_table;
@@ -60,15 +60,15 @@ export const depositPostModel = async (params: {
   }
 
   const arrayBuffer = await file.arrayBuffer();
-  const buffer = Buffer.from(arrayBuffer);
-
-  await worker.setParameters({
-    preserve_interword_spaces: "1",
-  });
+  const processedBuffer = await sharp(arrayBuffer)
+    .grayscale()
+    .normalize()
+    .resize({ width: 1200 }) // Upscale for better OCR
+    .toBuffer();
 
   const {
     data: { text },
-  } = await worker.recognize(buffer, {
+  } = await worker.recognize(processedBuffer, {
     pdfTextOnly: true,
   });
 
@@ -85,24 +85,9 @@ export const depositPostModel = async (params: {
     normalize(text).includes(normalize(keyword))
   );
 
-  console.log(matchedKeywords);
-  console.log(normalize(text));
+  const hasMinimumKeywordMatch = matchedKeywords.length >= 3;
 
-  const hasRef = /\b\d{4} ?\d{3} ?\d{6}\b/.test(text);
-  const hasPhone =
-    /\+63\d{10}/.test(text) || /\+63 ?\d{3} ?\d{3} ?\d{4}/.test(text);
-  const hasAmount =
-    /(?:total\s*amount\s*sent|amount)[^\d₱]*₱?\d{2,7}\.\d{2}/i.test(text);
-  const hasTotalLabel = /total\s*amount\s*sent/i.test(text);
-
-  const matchedPatterns = [hasAmount, hasRef, hasPhone, hasTotalLabel].filter(
-    Boolean
-  ).length;
-
-  const hasMinimumKeywordMatch = matchedKeywords.length >= 2;
-  const hasMinimumPatternMatch = matchedPatterns >= 3;
-
-  if (!hasMinimumKeywordMatch && !hasMinimumPatternMatch) {
+  if (!hasMinimumKeywordMatch) {
     throw new Error(
       "Invalid receipt. Please upload a clearer screenshot or proper receipt."
     );
@@ -409,13 +394,15 @@ export const depositListPostModel = async (
   }
 
   if (dateFilter?.start && dateFilter?.end) {
-    const startDate =
-      new Date(dateFilter.start || new Date()).toISOString().split("T")[0] +
-      " 00:00:00.000";
+    const startDate = getPhilippinesTime(
+      new Date(dateFilter.start || new Date()),
+      "start"
+    );
 
-    const endDate =
-      new Date(dateFilter.end || new Date()).toISOString().split("T")[0] +
-      " 23:59:59.999";
+    const endDate = getPhilippinesTime(
+      new Date(dateFilter.end || new Date()),
+      "end"
+    );
 
     commonConditions.push(
       Prisma.raw(
@@ -540,9 +527,28 @@ export const depositListPostModel = async (
           },
         },
       });
+    const deposit = await prisma.alliance_top_up_request_table.aggregate({
+      _sum: {
+        alliance_top_up_request_amount: true,
+      },
+      where: {
+        alliance_top_up_request_status: "PENDING",
+        alliance_top_up_request_date: {
+          gte: getPhilippinesTime(
+            dateFilter?.start ? new Date(dateFilter.start) : new Date(),
+            "start"
+          ),
+          lte: getPhilippinesTime(
+            dateFilter?.end ? new Date(dateFilter.end) : new Date(),
+            "end"
+          ),
+        },
+      },
+    });
+
     returnData.merchantBalance = merchant?.merchant_member_balance;
     returnData.totalPendingDeposit =
-      totalPendingDeposit._sum.alliance_top_up_request_amount || 0;
+      deposit?._sum.alliance_top_up_request_amount || 0;
   }
 
   return JSON.parse(

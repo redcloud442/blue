@@ -109,3 +109,8 @@ export const getDepositBonus = (amount: number) => {
 };
 
 export const worker = await createWorker();
+
+await worker.setParameters({
+  preserve_interword_spaces: "1",
+  user_defined_dpi: "300",
+});

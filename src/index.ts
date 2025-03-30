@@ -1,10 +1,15 @@
+import fs from "fs";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
+import path from "path";
+import sharp from "sharp";
 import { envConfig } from "./env.js";
 import { supabaseMiddleware } from "./middleware/auth.middleware.js";
 import { errorHandlerMiddleware } from "./middleware/errorMiddleware.js";
 import route from "./route/route.js";
+import { bankWords } from "./utils/constant.js";
+import { worker } from "./utils/function.js";
 
 const app = new Hono();
 
@@ -17,6 +22,7 @@ app.use(
         process.env.NODE_ENV === "development"
           ? "http://localhost:3000"
           : [
+              "https://paldistribution.live",
               "https://primepinas.com",
               "https://website.primepinas.com",
               "https://front.primepinas.com",
@@ -68,6 +74,60 @@ app.get("/", (c) => {
 });
 
 app.route("/api/v1", route);
+const RECEIPT_FOLDER = path.join("public", "images");
+const files = fs.readdirSync(RECEIPT_FOLDER);
+
+let approvedCount = 0;
+let rejectedCount = 0;
+
+const normalize = (str: string) =>
+  str
+    .toLowerCase()
+    .replace(/[^\w\s₱\+]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const bankKeywords = await bankWords();
+
+console.log(bankKeywords);
+(async () => {
+  console.log("🔍 Starting local batch validation...\n");
+
+  for (const filename of files) {
+    const filePath = path.join(RECEIPT_FOLDER, filename);
+
+    const processedBuffer = await sharp(filePath)
+      .grayscale()
+      .normalize()
+      .resize({ width: 1200 }) // Upscale for better OCR
+      .toBuffer();
+    const {
+      data: { text },
+    } = await worker.recognize(processedBuffer, {
+      rotateAuto: true,
+    });
+
+    const matchedKeywords = bankKeywords.filter((keyword) =>
+      normalize(text).includes(normalize(keyword))
+    );
+
+    const hasMinimumKeywordMatch = matchedKeywords.length >= 3;
+
+    console.log(hasMinimumKeywordMatch);
+
+    if (hasMinimumKeywordMatch) {
+      approvedCount++;
+      console.log(`✅ APPROVED: ${filename}, ${approvedCount}`);
+    } else {
+      rejectedCount++;
+      console.log(`❌ REJECTED: ${filename}, ${rejectedCount}`);
+    }
+  }
+
+  console.log("\n=== Summary ===");
+  console.log(`Approved: ${approvedCount}`);
+  console.log(`Rejected: ${rejectedCount}`);
+})();
 
 app.onError(errorHandlerMiddleware);
 

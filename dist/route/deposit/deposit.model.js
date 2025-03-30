@@ -219,10 +219,8 @@ export const depositListPostModel = async (params, teamMemberProfile) => {
         commonConditions.push(Prisma.raw(`u.user_id::TEXT = '${userFilter}'`));
     }
     if (dateFilter?.start && dateFilter?.end) {
-        const startDate = new Date(dateFilter.start || new Date()).toISOString().split("T")[0] +
-            " 00:00:00.000";
-        const endDate = new Date(dateFilter.end || new Date()).toISOString().split("T")[0] +
-            " 23:59:59.999";
+        const startDate = getPhilippinesTime(new Date(dateFilter.start || new Date()), "start");
+        const endDate = getPhilippinesTime(new Date(dateFilter.end || new Date()), "end");
         commonConditions.push(Prisma.raw(`t.alliance_top_up_request_date_updated::timestamptz at time zone 'Asia/Manila' BETWEEN '${startDate}'::timestamptz AND '${endDate}'::timestamptz`));
     }
     if (search) {
@@ -301,7 +299,21 @@ export const depositListPostModel = async (params, teamMemberProfile) => {
                 merchant_member_balance: true,
             },
         });
+        const deposit = await prisma.alliance_top_up_request_table.aggregate({
+            _sum: {
+                alliance_top_up_request_amount: true,
+            },
+            where: {
+                alliance_top_up_request_status: "PENDING",
+                alliance_top_up_request_date: {
+                    gte: getPhilippinesTime(dateFilter?.start ? new Date(dateFilter.start) : new Date(), "start"),
+                    lte: getPhilippinesTime(dateFilter?.end ? new Date(dateFilter.end) : new Date(), "end"),
+                },
+            },
+        });
         returnData.merchantBalance = merchant?.merchant_member_balance;
+        returnData.totalPendingDeposit =
+            deposit?._sum.alliance_top_up_request_amount || 0;
     }
     return JSON.parse(JSON.stringify(returnData, (key, value) => typeof value === "bigint" ? value.toString() : value));
 };
