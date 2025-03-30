@@ -554,7 +554,7 @@ export const withdrawListPostModel = async (params: {
       await prisma.alliance_withdrawal_request_table.aggregate({
         where: {
           alliance_withdrawal_request_status: "PENDING",
-          alliance_withdrawal_request_date_updated: {
+          alliance_withdrawal_request_date: {
             gte: getPhilippinesTime(
               new Date(dateFilter?.start || new Date()),
               "start"
