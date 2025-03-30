@@ -649,6 +649,7 @@ function getBonusPercentage(level) {
 function deductFromWallets(amount, combinedWallet, olympusWallet, olympusEarnings, referralWallet, winningEarnings) {
     let remaining = amount;
     let isReinvestment = false;
+    console.log(combinedWallet, olympusWallet, olympusEarnings, referralWallet, winningEarnings);
     // Validate total funds
     if (combinedWallet < amount) {
         throw new Error("Insufficient balance in combined wallet.");
@@ -696,6 +697,7 @@ function deductFromWallets(amount, combinedWallet, olympusWallet, olympusEarning
             winningEarnings = 0;
         }
     }
+    remaining = Math.round(remaining * 1000000) / 1000000;
     if (remaining > 0) {
         throw new Error("Insufficient funds to complete the transaction.");
     }

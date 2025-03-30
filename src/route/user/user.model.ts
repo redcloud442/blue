@@ -299,11 +299,54 @@ export const userPatchModel = async (params: {
 
   if (action === "banUser") {
     if (type === "BAN") {
+      const supabase = supabaseClient;
+
+      const user = await prisma.alliance_member_table.findUnique({
+        where: { alliance_member_id: memberId },
+        select: {
+          alliance_member_user_id: true,
+        },
+      });
+
+      if (!user) {
+        return { success: false, error: "User not found." };
+      }
+
+      const { error } = await supabase.auth.admin.updateUserById(
+        user.alliance_member_user_id,
+        {
+          ban_duration: "100000h",
+        }
+      );
+
+      if (error) throw error;
+
       await prisma.alliance_member_table.update({
         where: { alliance_member_id: memberId },
         data: { alliance_member_restricted: true },
       });
     } else if (type === "UNBAN") {
+      const supabase = supabaseClient;
+      const user = await prisma.alliance_member_table.findUnique({
+        where: { alliance_member_id: memberId },
+        select: {
+          alliance_member_user_id: true,
+        },
+      });
+
+      if (!user) {
+        return { success: false, error: "User not found." };
+      }
+
+      const { error } = await supabase.auth.admin.updateUserById(
+        user.alliance_member_user_id,
+        {
+          ban_duration: "none",
+        }
+      );
+
+      if (error) throw error;
+
       await prisma.alliance_member_table.update({
         where: { alliance_member_id: memberId },
         data: { alliance_member_restricted: false },
