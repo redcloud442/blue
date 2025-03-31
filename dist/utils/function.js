@@ -59,20 +59,33 @@ export const getPhilippinesTime = (date, time) => {
     return resultDate.toISOString();
 };
 export const toNonNegative = (num) => num < 0 || Math.abs(num) < 1e-6 ? 0 : num;
-export const getDepositBonus = (amount) => {
+export const getDepositBonus = (amount, type) => {
     const depositTiers = [
-        { deposit: 5000, count: 1 },
-        { deposit: 10000, count: 2 },
-        { deposit: 30000, count: 4 },
-        { deposit: 50000, count: 6 },
-        { deposit: 70000, count: 8 },
-        { deposit: 100000, count: 10 },
+        { deposit: 5000, count: 1, percentage: 0 },
+        { deposit: 10000, count: 2, percentage: 0.001 },
+        { deposit: 30000, count: 4, percentage: 0.005 },
+        { deposit: 50000, count: 6, percentage: 0.01 },
+        { deposit: 70000, count: 8, percentage: 0.02 },
+        { deposit: 100000, count: 10, percentage: 0.03 },
     ];
-    if (amount < 10000) {
-        return 0;
+    if (amount < 5000) {
+        return {
+            depositBonus: 0,
+            count: 0,
+        };
     }
     const lowestTier = depositTiers
         .filter((tier) => tier.deposit <= amount)
         .reduce((prev, curr) => (curr.deposit > prev.deposit ? curr : prev), depositTiers[0]);
-    return lowestTier.count;
+    if (type === "package") {
+        return {
+            count: lowestTier.count,
+        };
+    }
+    else if (type === "deposit") {
+        const depositBonus = lowestTier.percentage * amount;
+        return {
+            depositBonus: depositBonus,
+        };
+    }
 };

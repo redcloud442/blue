@@ -467,7 +467,9 @@ export const packageReinvestPostModel = async (params) => {
             },
         });
         const referralChain = generateReferralChain(referralData?.alliance_referral_hierarchy ?? null, teamMemberId, 100);
-        const count = getDepositBonus(finalAmount);
+        const depositBonus = getDepositBonus(finalAmount, "package");
+        const count = depositBonus?.count ?? 0;
+        console.log(count);
         let bountyLogs = [];
         let transactionLogs = [];
         let transactionLogsSpin = [];

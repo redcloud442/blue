@@ -695,7 +695,10 @@ export const packageReinvestPostModel = async (params: {
       100
     );
 
-    const count = getDepositBonus(finalAmount);
+    const depositBonus = getDepositBonus(finalAmount, "package");
+    const count = depositBonus?.count ?? 0;
+
+    console.log(count);
 
     let bountyLogs: Prisma.package_ally_bounty_logCreateManyInput[] = [];
 
