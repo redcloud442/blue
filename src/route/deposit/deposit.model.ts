@@ -494,14 +494,8 @@ export const depositListPostModel = async (
         alliance_top_up_request_date:
           dateFilter?.start && dateFilter?.end
             ? {
-                gte: getPhilippinesTime(
-                  dateFilter?.start ? new Date(dateFilter.start) : new Date(),
-                  "start"
-                ),
-                lte: getPhilippinesTime(
-                  dateFilter?.end ? new Date(dateFilter.end) : new Date(),
-                  "end"
-                ),
+                gte: getPhilippinesTime(new Date(dateFilter.start), "start"),
+                lte: getPhilippinesTime(new Date(dateFilter.end), "end"),
               }
             : undefined,
       },
