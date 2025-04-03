@@ -412,10 +412,8 @@ export const withdrawListPostModel = async (params: {
       PENDING: { data: [], count: BigInt(0) },
     },
     totalCount: BigInt(0),
-    totalWithdrawals: {
-      amount: 0,
-      approvedAmount: 0,
-    },
+    totalPendingWithdrawals: 0,
+    totalApprovedWithdrawals: 0,
   };
 
   const {
@@ -554,16 +552,13 @@ export const withdrawListPostModel = async (params: {
       await prisma.alliance_withdrawal_request_table.aggregate({
         where: {
           alliance_withdrawal_request_status: "PENDING",
-          alliance_withdrawal_request_date: {
-            gte: getPhilippinesTime(
-              new Date(dateFilter?.start || new Date()),
-              "start"
-            ),
-            lte: getPhilippinesTime(
-              new Date(dateFilter?.end || new Date()),
-              "end"
-            ),
-          },
+          alliance_withdrawal_request_date:
+            dateFilter?.start && dateFilter?.end
+              ? {
+                  gte: getPhilippinesTime(new Date(dateFilter?.start), "start"),
+                  lte: getPhilippinesTime(new Date(dateFilter?.end), "end"),
+                }
+              : undefined,
         },
         _sum: {
           alliance_withdrawal_request_amount: true,
@@ -575,32 +570,25 @@ export const withdrawListPostModel = async (params: {
       await prisma.alliance_withdrawal_request_table.aggregate({
         where: {
           alliance_withdrawal_request_status: "APPROVED",
-          alliance_withdrawal_request_date_updated: {
-            gte: getPhilippinesTime(
-              new Date(dateFilter?.start || new Date()),
-              "start"
-            ),
-            lte: getPhilippinesTime(
-              new Date(dateFilter?.end || new Date()),
-              "end"
-            ),
-          },
+          alliance_withdrawal_request_date_updated:
+            dateFilter?.start && dateFilter?.end
+              ? {
+                  gte: getPhilippinesTime(new Date(dateFilter?.start), "start"),
+                  lte: getPhilippinesTime(new Date(dateFilter?.end), "end"),
+                }
+              : undefined,
         },
         _sum: {
           alliance_withdrawal_request_amount: true,
           alliance_withdrawal_request_fee: true,
         },
       });
-    returnData.totalWithdrawals = {
-      amount:
-        Number(aggregateResult._sum.alliance_withdrawal_request_amount || 0) -
-        Number(aggregateResult._sum.alliance_withdrawal_request_fee || 0),
-      approvedAmount:
-        Number(
-          totalApprovedCount._sum.alliance_withdrawal_request_amount || 0
-        ) -
-        Number(totalApprovedCount._sum.alliance_withdrawal_request_fee || 0),
-    };
+    returnData.totalPendingWithdrawals =
+      Number(aggregateResult._sum.alliance_withdrawal_request_amount || 0) -
+      Number(aggregateResult._sum.alliance_withdrawal_request_fee || 0);
+    returnData.totalApprovedWithdrawals =
+      Number(totalApprovedCount._sum.alliance_withdrawal_request_amount || 0) -
+      Number(totalApprovedCount._sum.alliance_withdrawal_request_fee || 0);
   }
 
   ["APPROVED", "REJECTED", "PENDING"].forEach((status) => {

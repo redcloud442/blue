@@ -491,16 +491,19 @@ export const depositListPostModel = async (
       },
       where: {
         alliance_top_up_request_status: "PENDING",
-        alliance_top_up_request_date: {
-          gte: getPhilippinesTime(
-            dateFilter?.start ? new Date(dateFilter.start) : new Date(),
-            "start"
-          ),
-          lte: getPhilippinesTime(
-            dateFilter?.end ? new Date(dateFilter.end) : new Date(),
-            "end"
-          ),
-        },
+        alliance_top_up_request_date:
+          dateFilter?.start && dateFilter?.end
+            ? {
+                gte: getPhilippinesTime(
+                  dateFilter?.start ? new Date(dateFilter.start) : new Date(),
+                  "start"
+                ),
+                lte: getPhilippinesTime(
+                  dateFilter?.end ? new Date(dateFilter.end) : new Date(),
+                  "end"
+                ),
+              }
+            : undefined,
       },
     });
 
