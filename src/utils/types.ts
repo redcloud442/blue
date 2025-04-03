@@ -53,8 +53,8 @@ export type ReturnDataType = {
 };
 
 export type WithdrawReturnDataType = {
-  totalPendingWithdrawals: number;
-  totalApprovedWithdrawals: number;
+  totalPendingWithdrawal: number;
+  totalApprovedWithdrawal: number;
   data: {
     [key: string]: {
       data: WithdrawalRequestData[];

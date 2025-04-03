@@ -412,8 +412,8 @@ export const withdrawListPostModel = async (params: {
       PENDING: { data: [], count: BigInt(0) },
     },
     totalCount: BigInt(0),
-    totalPendingWithdrawals: 0,
-    totalApprovedWithdrawals: 0,
+    totalPendingWithdrawal: 0,
+    totalApprovedWithdrawal: 0,
   };
 
   const {
@@ -583,10 +583,10 @@ export const withdrawListPostModel = async (params: {
           alliance_withdrawal_request_fee: true,
         },
       });
-    returnData.totalPendingWithdrawals =
+    returnData.totalPendingWithdrawal =
       Number(aggregateResult._sum.alliance_withdrawal_request_amount || 0) -
       Number(aggregateResult._sum.alliance_withdrawal_request_fee || 0);
-    returnData.totalApprovedWithdrawals =
+    returnData.totalApprovedWithdrawal =
       Number(totalApprovedCount._sum.alliance_withdrawal_request_amount || 0) -
       Number(totalApprovedCount._sum.alliance_withdrawal_request_fee || 0);
   }
