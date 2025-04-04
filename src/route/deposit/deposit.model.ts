@@ -10,7 +10,7 @@ import {
   setSeconds,
 } from "date-fns";
 import { type DepositFormValues } from "../../schema/schema.js";
-import { getDepositBonus, getPhilippinesTime } from "../../utils/function.js";
+import { getPhilippinesTime } from "../../utils/function.js";
 import prisma from "../../utils/prisma.js";
 import type { ReturnDataType, TopUpRequestData } from "../../utils/types.js";
 
@@ -126,30 +126,15 @@ export const depositPutModel = async (params: {
       },
     });
 
-    const depositBonus = getDepositBonus(
-      updatedRequest.alliance_top_up_request_amount,
-      "deposit"
-    );
-
-    const depositBonusAmount = depositBonus?.depositBonus ?? 0;
-
-    console.log(depositBonusAmount);
-
     await tx.alliance_transaction_table.create({
       data: {
         transaction_description: `Deposit ${
           status.charAt(0).toUpperCase() + status.slice(1).toLowerCase()
-        } ${note ? `(${note})` : ""} ${
-          depositBonusAmount > 0
-            ? `+ Bonus  ₱ ${depositBonusAmount.toLocaleString("en-US", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}`
-            : ""
+        } ${note ? `(${note})` : ""}
+       
         }`,
         transaction_details: `Account Name: ${updatedRequest.alliance_top_up_request_name}, Account Number: ${updatedRequest.alliance_top_up_request_account}`,
-        transaction_amount:
-          updatedRequest.alliance_top_up_request_amount + depositBonusAmount,
+        transaction_amount: updatedRequest.alliance_top_up_request_amount,
         transaction_member_id: updatedRequest.alliance_top_up_request_member_id,
         transaction_attachment:
           status === "REJECTED"
@@ -168,20 +153,16 @@ export const depositPutModel = async (params: {
           alliance_earnings_member_id:
             updatedRequest.alliance_top_up_request_member_id,
           alliance_olympus_wallet:
-            updatedRequest.alliance_top_up_request_amount + depositBonusAmount,
+            updatedRequest.alliance_top_up_request_amount,
           alliance_combined_earnings:
-            updatedRequest.alliance_top_up_request_amount + depositBonusAmount,
+            updatedRequest.alliance_top_up_request_amount,
         },
         update: {
           alliance_olympus_wallet: {
-            increment:
-              updatedRequest.alliance_top_up_request_amount +
-              depositBonusAmount,
+            increment: updatedRequest.alliance_top_up_request_amount,
           },
           alliance_combined_earnings: {
-            increment:
-              updatedRequest.alliance_top_up_request_amount +
-              depositBonusAmount,
+            increment: updatedRequest.alliance_top_up_request_amount,
           },
         },
       });
