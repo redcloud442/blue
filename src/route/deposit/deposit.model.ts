@@ -499,7 +499,10 @@ export const depositListPostModel = async (
                     ),
                     lte: getPhilippinesTime(new Date(dateFilter.end), "end"),
                   }
-                : undefined,
+                : {
+                    gte: getPhilippinesTime(new Date(), "start"),
+                    lte: getPhilippinesTime(new Date(), "end"),
+                  },
           },
         });
       returnData.totalApprovedDeposit =
