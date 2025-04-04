@@ -482,6 +482,30 @@ export const depositListPostModel = async (
       },
     });
 
+    if (teamMemberProfile.alliance_member_role === "MERCHANT") {
+      const approvedDeposit =
+        await prisma.alliance_top_up_request_table.aggregate({
+          _sum: {
+            alliance_top_up_request_amount: true,
+          },
+          where: {
+            alliance_top_up_request_status: "APPROVED",
+            alliance_top_up_request_date:
+              dateFilter?.start && dateFilter?.end
+                ? {
+                    gte: getPhilippinesTime(
+                      new Date(dateFilter.start),
+                      "start"
+                    ),
+                    lte: getPhilippinesTime(new Date(dateFilter.end), "end"),
+                  }
+                : undefined,
+          },
+        });
+      returnData.totalApprovedDeposit =
+        approvedDeposit?._sum.alliance_top_up_request_amount || 0;
+    }
+
     returnData.merchantBalance = merchant?.merchant_member_balance;
     returnData.totalPendingDeposit =
       deposit?._sum.alliance_top_up_request_amount || 0;
