@@ -548,24 +548,6 @@ export const withdrawListPostModel = async (params: {
     `;
 
   if (teamMemberProfile.alliance_member_role === "ACCOUNTING_HEAD") {
-    const aggregateResult =
-      await prisma.alliance_withdrawal_request_table.aggregate({
-        where: {
-          alliance_withdrawal_request_status: "PENDING",
-          alliance_withdrawal_request_date:
-            dateFilter?.start && dateFilter?.end
-              ? {
-                  gte: getPhilippinesTime(new Date(dateFilter?.start), "start"),
-                  lte: getPhilippinesTime(new Date(dateFilter?.end), "end"),
-                }
-              : undefined,
-        },
-        _sum: {
-          alliance_withdrawal_request_amount: true,
-          alliance_withdrawal_request_fee: true,
-        },
-      });
-
     const totalApprovedCount =
       await prisma.alliance_withdrawal_request_table.aggregate({
         where: {
@@ -583,13 +565,33 @@ export const withdrawListPostModel = async (params: {
           alliance_withdrawal_request_fee: true,
         },
       });
-    returnData.totalPendingWithdrawal =
-      Number(aggregateResult._sum.alliance_withdrawal_request_amount || 0) -
-      Number(aggregateResult._sum.alliance_withdrawal_request_fee || 0);
+
     returnData.totalApprovedWithdrawal =
       Number(totalApprovedCount._sum.alliance_withdrawal_request_amount || 0) -
       Number(totalApprovedCount._sum.alliance_withdrawal_request_fee || 0);
   }
+
+  const aggregateResult =
+    await prisma.alliance_withdrawal_request_table.aggregate({
+      where: {
+        alliance_withdrawal_request_status: "PENDING",
+        alliance_withdrawal_request_date:
+          dateFilter?.start && dateFilter?.end
+            ? {
+                gte: getPhilippinesTime(new Date(dateFilter?.start), "start"),
+                lte: getPhilippinesTime(new Date(dateFilter?.end), "end"),
+              }
+            : undefined,
+      },
+      _sum: {
+        alliance_withdrawal_request_amount: true,
+        alliance_withdrawal_request_fee: true,
+      },
+    });
+
+  returnData.totalPendingWithdrawal =
+    Number(aggregateResult._sum.alliance_withdrawal_request_amount || 0) -
+    Number(aggregateResult._sum.alliance_withdrawal_request_fee || 0);
 
   ["APPROVED", "REJECTED", "PENDING"].forEach((status) => {
     const match = statusCounts.find((item) => item.status === status);
